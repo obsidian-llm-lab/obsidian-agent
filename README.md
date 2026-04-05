@@ -67,15 +67,7 @@ cd obsidian-agent
 
 ## 安装后只需做两件事
 
-### 1. 配置 Gemini API Key
-
-编辑仓库根目录的 `.env`：
-
-```env
-GEMINI_API_KEY=your-gemini-api-key-here
-```
-
-### 2. 在 Obsidian 中启用插件
+### 1. 在 Obsidian 中启用插件
 
 打开你的 vault，然后：
 
@@ -84,6 +76,21 @@ GEMINI_API_KEY=your-gemini-api-key-here
 3. 启用 `LLM Agent Console`
 
 启用后，左侧会出现一个机器人图标，点击即可打开 `LLM Agent` 面板。
+
+### 2. 在插件设置里配置 LLM
+
+进入 `Settings -> Community plugins -> LLM Agent Console -> Options`，你可以直接在插件设置页里配置：
+
+- `Gemini API Key`
+- `Pro / Flash / Lite` 模型名
+- 摘要、概念提取、索引、问答等任务分别使用哪档模型
+
+这些设置会自动同步写回：
+
+- `obsidian-agent/.env`
+- `obsidian-agent/config.yaml`
+
+如果你更习惯手动改文件，仍然可以直接编辑 `.env` 和 `config.yaml`。
 
 ## 在 Obsidian 里能做什么
 

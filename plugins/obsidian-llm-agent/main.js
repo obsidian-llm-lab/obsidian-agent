@@ -19,6 +19,17 @@ const DEFAULT_SETTINGS = {
     openIndexAfterCompile: true,
     saveQaReport: true,
     showVerboseLogs: false,
+    apiKey: '',
+    modelPro: 'gemini-2.5-pro',
+    modelFlash: 'gemini-2.5-flash',
+    modelLite: 'gemini-2.5-flash-lite',
+    roleSummary: 'flash',
+    roleConceptExtract: 'flash',
+    roleConceptArticle: 'pro',
+    roleConceptUpdate: 'flash',
+    roleIndex: 'lite',
+    roleQaRetrieve: 'lite',
+    roleQaAnswer: 'pro',
 };
 
 function tailText(text, maxLines = 12) {
@@ -33,6 +44,31 @@ function tailText(text, maxLines = 12) {
 function extractMatch(text, pattern) {
     const match = text.match(pattern);
     return match ? match[1].trim() : '';
+}
+
+function unquoteValue(value) {
+    const trimmed = (value || '').trim();
+    if (
+        (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
+        return trimmed.slice(1, -1);
+    }
+    return trimmed;
+}
+
+function formatYamlValue(value) {
+    if (value === '') {
+        return '""';
+    }
+    if (/^[A-Za-z0-9._/-]+$/.test(value)) {
+        return value;
+    }
+    return JSON.stringify(value);
+}
+
+function formatEnvValue(value) {
+    return JSON.stringify(value || '');
 }
 
 class TextPromptModal extends Modal {
@@ -268,6 +304,10 @@ class LLMAgentSettingTab extends PluginSettingTab {
         const { containerEl } = this;
         containerEl.empty();
         containerEl.createEl('h2', { text: 'LLM Agent 设置' });
+        containerEl.createEl('p', {
+            text: '这里的后台设置会同步写回 obsidian-agent 的 .env 和 config.yaml，不会显示在插件主面板。',
+            cls: 'setting-item-description',
+        });
 
         new Setting(containerEl)
             .setName('Agent 目录')
@@ -334,6 +374,96 @@ class LLMAgentSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }),
             );
+
+        containerEl.createEl('h3', { text: 'LLM API' });
+
+        new Setting(containerEl)
+            .setName('Gemini API Key')
+            .setDesc('保存到 obsidian-agent/.env 的 GEMINI_API_KEY。')
+            .addText((text) => {
+                text
+                    .setPlaceholder('AIza...')
+                    .setValue(this.plugin.settings.apiKey)
+                    .onChange(async (value) => {
+                        this.plugin.settings.apiKey = value.trim();
+                        await this.plugin.saveSettings();
+                    });
+                text.inputEl.type = 'password';
+            });
+
+        containerEl.createEl('h3', { text: '模型别名' });
+
+        new Setting(containerEl)
+            .setName('Pro 模型')
+            .setDesc('复杂推理任务默认使用。')
+            .addText((text) =>
+                text
+                    .setPlaceholder('gemini-2.5-pro')
+                    .setValue(this.plugin.settings.modelPro)
+                    .onChange(async (value) => {
+                        this.plugin.settings.modelPro = value.trim() || DEFAULT_SETTINGS.modelPro;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+
+        new Setting(containerEl)
+            .setName('Flash 模型')
+            .setDesc('日常摘要和轻量生成任务默认使用。')
+            .addText((text) =>
+                text
+                    .setPlaceholder('gemini-2.5-flash')
+                    .setValue(this.plugin.settings.modelFlash)
+                    .onChange(async (value) => {
+                        this.plugin.settings.modelFlash = value.trim() || DEFAULT_SETTINGS.modelFlash;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+
+        new Setting(containerEl)
+            .setName('Lite 模型')
+            .setDesc('索引、检索等轻量任务默认使用。')
+            .addText((text) =>
+                text
+                    .setPlaceholder('gemini-2.5-flash-lite')
+                    .setValue(this.plugin.settings.modelLite)
+                    .onChange(async (value) => {
+                        this.plugin.settings.modelLite = value.trim() || DEFAULT_SETTINGS.modelLite;
+                        await this.plugin.saveSettings();
+                    }),
+            );
+
+        containerEl.createEl('h3', { text: '任务模型分配' });
+
+        const roleOptions = {
+            lite: 'Lite',
+            flash: 'Flash',
+            pro: 'Pro',
+        };
+
+        const roleSettings = [
+            ['摘要生成', 'roleSummary', 'summary'],
+            ['概念提取', 'roleConceptExtract', 'concept_extract'],
+            ['概念文章', 'roleConceptArticle', 'concept_article'],
+            ['概念更新', 'roleConceptUpdate', 'concept_update'],
+            ['索引生成', 'roleIndex', 'index'],
+            ['问答检索', 'roleQaRetrieve', 'qa_retrieve'],
+            ['问答回答', 'roleQaAnswer', 'qa_answer'],
+        ];
+
+        roleSettings.forEach(([label, key, desc]) => {
+            new Setting(containerEl)
+                .setName(label)
+                .setDesc(`对应后端角色: ${desc}`)
+                .addDropdown((dropdown) => {
+                    Object.entries(roleOptions).forEach(([value, text]) => {
+                        dropdown.addOption(value, text);
+                    });
+                    dropdown.setValue(this.plugin.settings[key]).onChange(async (value) => {
+                        this.plugin.settings[key] = value;
+                        await this.plugin.saveSettings();
+                    });
+                });
+        });
     }
 }
 
@@ -407,16 +537,175 @@ module.exports = class LLMAgentPlugin extends Plugin {
         if (!this.settings.agentDirectory) {
             this.settings.agentDirectory = this.getDefaultAgentDirectory();
         }
-        await this.saveSettings();
+        this.syncSettingsFromBackend();
+        await this.saveData(this.settings);
     }
 
     async saveSettings() {
         await this.saveData(this.settings);
+        this.persistBackendSettings();
     }
 
     getDefaultAgentDirectory() {
         const vaultPath = this.app.vault.adapter.basePath;
         return path.resolve(vaultPath, '../obsidian-agent');
+    }
+
+    getEnvPath() {
+        return path.join(this.settings.agentDirectory, '.env');
+    }
+
+    getConfigPath() {
+        return path.join(this.settings.agentDirectory, 'config.yaml');
+    }
+
+    readFileSafe(filePath) {
+        try {
+            return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+        } catch (error) {
+            console.error(`[LLM Agent] 读取文件失败: ${filePath}`, error);
+            return '';
+        }
+    }
+
+    syncSettingsFromBackend() {
+        const envText = this.readFileSafe(this.getEnvPath());
+        const apiKey = extractMatch(envText, /^GEMINI_API_KEY=(.+)$/m);
+        if (apiKey) {
+            this.settings.apiKey = unquoteValue(apiKey);
+        }
+
+        const configText = this.readFileSafe(this.getConfigPath());
+        const mappings = [
+            ['modelPro', ['llm', 'models', 'pro']],
+            ['modelFlash', ['llm', 'models', 'flash']],
+            ['modelLite', ['llm', 'models', 'lite']],
+            ['roleSummary', ['llm', 'roles', 'summary']],
+            ['roleConceptExtract', ['llm', 'roles', 'concept_extract']],
+            ['roleConceptArticle', ['llm', 'roles', 'concept_article']],
+            ['roleConceptUpdate', ['llm', 'roles', 'concept_update']],
+            ['roleIndex', ['llm', 'roles', 'index']],
+            ['roleQaRetrieve', ['llm', 'roles', 'qa_retrieve']],
+            ['roleQaAnswer', ['llm', 'roles', 'qa_answer']],
+        ];
+
+        mappings.forEach(([settingKey, yamlPath]) => {
+            const value = this.readYamlValue(configText, yamlPath);
+            if (value) {
+                this.settings[settingKey] = value;
+            }
+        });
+    }
+
+    persistBackendSettings() {
+        const envPath = this.getEnvPath();
+        const configPath = this.getConfigPath();
+
+        if (fs.existsSync(envPath)) {
+            const envText = this.readFileSafe(envPath);
+            const updatedEnv = this.upsertEnvVar(envText, 'GEMINI_API_KEY', this.settings.apiKey);
+            fs.writeFileSync(envPath, updatedEnv, 'utf8');
+        }
+
+        if (fs.existsSync(configPath)) {
+            let configText = this.readFileSafe(configPath);
+            const yamlMappings = [
+                [['llm', 'models', 'pro'], this.settings.modelPro],
+                [['llm', 'models', 'flash'], this.settings.modelFlash],
+                [['llm', 'models', 'lite'], this.settings.modelLite],
+                [['llm', 'roles', 'summary'], this.settings.roleSummary],
+                [['llm', 'roles', 'concept_extract'], this.settings.roleConceptExtract],
+                [['llm', 'roles', 'concept_article'], this.settings.roleConceptArticle],
+                [['llm', 'roles', 'concept_update'], this.settings.roleConceptUpdate],
+                [['llm', 'roles', 'index'], this.settings.roleIndex],
+                [['llm', 'roles', 'qa_retrieve'], this.settings.roleQaRetrieve],
+                [['llm', 'roles', 'qa_answer'], this.settings.roleQaAnswer],
+            ];
+
+            yamlMappings.forEach(([yamlPath, value]) => {
+                configText = this.updateYamlValue(configText, yamlPath, value);
+            });
+
+            fs.writeFileSync(configPath, configText, 'utf8');
+        }
+    }
+
+    upsertEnvVar(text, key, value) {
+        const line = `${key}=${formatEnvValue(value)}`;
+        if (!text.trim()) {
+            return `${line}\n`;
+        }
+        if (new RegExp(`^${key}=`, 'm').test(text)) {
+            return text.replace(new RegExp(`^${key}=.*$`, 'm'), line);
+        }
+        return text.endsWith('\n') ? `${text}${line}\n` : `${text}\n${line}\n`;
+    }
+
+    readYamlValue(text, keyPath) {
+        const lines = text.split(/\r?\n/);
+        const index = this.findYamlKeyLine(lines, keyPath);
+        if (index === -1) {
+            return '';
+        }
+        const value = lines[index].split(':').slice(1).join(':').trim();
+        return unquoteValue(value);
+    }
+
+    updateYamlValue(text, keyPath, value) {
+        const lines = text.split(/\r?\n/);
+        const index = this.findYamlKeyLine(lines, keyPath);
+        if (index === -1) {
+            return text;
+        }
+        const indent = '  '.repeat(keyPath.length - 1);
+        const key = keyPath[keyPath.length - 1];
+        lines[index] = `${indent}${key}: ${formatYamlValue(value)}`;
+        return lines.join('\n');
+    }
+
+    findYamlKeyLine(lines, keyPath) {
+        let start = 0;
+        let end = lines.length;
+
+        for (let depth = 0; depth < keyPath.length; depth += 1) {
+            const key = keyPath[depth];
+            const indent = '  '.repeat(depth);
+            const pattern = new RegExp(`^${indent}${key}:\\s*(.*)$`);
+            let foundIndex = -1;
+
+            for (let i = start; i < end; i += 1) {
+                if (pattern.test(lines[i])) {
+                    foundIndex = i;
+                    break;
+                }
+            }
+
+            if (foundIndex === -1) {
+                return -1;
+            }
+
+            if (depth === keyPath.length - 1) {
+                return foundIndex;
+            }
+
+            start = foundIndex + 1;
+            end = lines.length;
+            const currentIndentLength = indent.length;
+
+            for (let i = start; i < lines.length; i += 1) {
+                const line = lines[i];
+                if (!line.trim()) {
+                    continue;
+                }
+                const nextIndentLength = line.match(/^ */)[0].length;
+                if (nextIndentLength <= currentIndentLength) {
+                    end = i;
+                    break;
+                }
+            }
+        }
+
+        return -1;
     }
 
     getTaskStatusLabel(task) {

@@ -105,6 +105,17 @@ payload = {
     "openIndexAfterCompile": True,
     "saveQaReport": True,
     "showVerboseLogs": False,
+    "apiKey": "",
+    "modelPro": "gemini-2.5-pro",
+    "modelFlash": "gemini-2.5-flash",
+    "modelLite": "gemini-2.5-flash-lite",
+    "roleSummary": "flash",
+    "roleConceptExtract": "flash",
+    "roleConceptArticle": "pro",
+    "roleConceptUpdate": "flash",
+    "roleIndex": "lite",
+    "roleQaRetrieve": "lite",
+    "roleQaAnswer": "pro",
 }
 data_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 PY
