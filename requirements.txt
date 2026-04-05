@@ -1,0 +1,6 @@
+google-generativeai>=0.8.0
+trafilatura>=1.8.0
+pymupdf>=1.24.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+rich>=13.0.0
