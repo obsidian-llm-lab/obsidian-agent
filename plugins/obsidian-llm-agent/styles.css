@@ -1,0 +1,184 @@
+.llm-agent-view {
+  padding: 8px 2px 18px;
+}
+
+.llm-agent-hero,
+.llm-agent-card {
+  background: linear-gradient(180deg, var(--background-secondary), color-mix(in srgb, var(--background-secondary) 80%, var(--background-primary)));
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+}
+
+.llm-agent-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.llm-agent-hero-top h2,
+.llm-agent-card h3 {
+  margin: 0;
+}
+
+.llm-agent-hero-description,
+.llm-agent-modal-description,
+.llm-agent-meta-list p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.llm-agent-status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.llm-agent-status-badge.is-idle {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+
+.llm-agent-status-badge.is-running {
+  background: color-mix(in srgb, var(--color-orange) 20%, transparent);
+  color: var(--color-orange);
+}
+
+.llm-agent-status-badge.is-success {
+  background: color-mix(in srgb, var(--color-green) 18%, transparent);
+  color: var(--color-green);
+}
+
+.llm-agent-status-badge.is-failed {
+  background: color-mix(in srgb, var(--color-red) 18%, transparent);
+  color: var(--color-red);
+}
+
+.llm-agent-actions,
+.llm-agent-open-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.llm-agent-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.llm-agent-action-button,
+.llm-agent-secondary-button,
+.llm-agent-modal-actions button {
+  width: 100%;
+  justify-content: center;
+  border-radius: 12px;
+  min-height: 38px;
+}
+
+.llm-agent-action-button {
+  background: linear-gradient(135deg, var(--interactive-accent), color-mix(in srgb, var(--interactive-accent) 72%, white));
+  color: var(--text-on-accent);
+  border: none;
+  font-weight: 600;
+}
+
+.llm-agent-action-button:hover {
+  filter: brightness(1.04);
+}
+
+.llm-agent-secondary-button {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.llm-agent-summary,
+.llm-agent-output {
+  margin: 10px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+}
+
+.llm-agent-summary {
+  font-family: var(--font-text);
+  color: var(--text-normal);
+}
+
+.llm-agent-result-row {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.llm-agent-result-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.llm-agent-result-button {
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-primary));
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 28%, var(--background-modifier-border));
+  color: var(--text-normal);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llm-agent-output {
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12px;
+}
+
+.llm-agent-log-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.llm-agent-modal .modal-content {
+  padding-top: 6px;
+}
+
+.llm-agent-modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.llm-agent-modal-form {
+  margin-top: 10px;
+}
+
+.llm-agent-modal-input {
+  width: 100%;
+  border-radius: 12px;
+}
+
+.llm-agent-modal-textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+.llm-agent-modal-hint {
+  margin-top: 8px;
+}
+
+.llm-agent-modal-actions {
+  margin-top: 14px;
+}

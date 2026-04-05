@@ -16,7 +16,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.utils import (
-    ROOT_DIR,
     load_config,
     call_llm,
     read_markdown,
@@ -26,6 +25,8 @@ from scripts.utils import (
     timestamp_now,
     get_path,
     list_wiki_articles,
+    vault_relative_path,
+    display_path,
     log_info,
     log_success,
     log_warning,
@@ -186,14 +187,14 @@ def answer_question(
             "created_at": timestamp_now(),
             "date": date_today(),
             "referenced_articles": [
-                str(p.relative_to(ROOT_DIR)) for p, _, _ in relevant
+                vault_relative_path(p, config) for p, _, _ in relevant
             ],
         }
         filename = f"{date_today()}_{slugify(question[:40])}.md"
         report_path = get_path(config, "output") / "reports" / filename
         report_body = f"## 问题\n\n{question}\n\n## 答案\n\n{answer}"
         write_markdown(report_path, report_meta, report_body)
-        log_success(f"答案已保存: {report_path.relative_to(ROOT_DIR)}")
+        log_success(f"答案已保存: {display_path(report_path)}")
 
     return answer
 

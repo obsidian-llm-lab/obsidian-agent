@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-llm-agent",
+  "name": "LLM Agent Console",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "原生控制台插件，一键触发后台大模型对本知识库的挂载编译、摘要提取和智能问答！",
+  "author": "Antigravity",
+  "authorUrl": "https://github.com/obsidian-llm-lab/obsidian-agent",
+  "isDesktopOnly": true
+}

@@ -1,124 +1,158 @@
-# 🧠 LLM 个人知识库系统 (Agent 后台)
+# 🧠 Obsidian Agent
 
-基于 [Andrej Karpathy 的理念](https://x.com/karpathy/status/2039805659525644595)，使用 LLM 自动构建和维护 Obsidian 知识库。
+基于 [Andrej Karpathy 的理念](https://x.com/karpathy/status/2039805659525644595)，用 LLM 自动维护你的 Obsidian 知识库。
 
-本项目是一个独立的 **大模型后台控制台 (`obsidian-agent`)**，它独立于你的文档库运行。它负责将你搜集的网页、论文等原始素材提取，然后通过 Google Gemini API 驱动智能体，自动帮你把材料"编译"成精美、带有 `[[双向连接]]` 的结构化概念维基，并注入到你平行的 `obsidian` 纯净内容库中！
+这个仓库现在同时包含两部分：
 
-> **核心思想**：LLM 是知识库的全自动"编辑长"，而你只负责投喂来源，并在 Obsidian 中纵享阅读与问答。
+- `obsidian-agent` 后端：负责 `ingest / compile / qa`
+- `obsidian-llm-agent` Obsidian 插件：在 Obsidian 内直接触发这些能力
 
----
+目标是让其他人 clone 仓库后，通过一条安装命令把后台、插件和基础目录一起配置好。
 
-## 🚀 核心特性
-
-- **代码与数据分离架构**：脚本与配置存放在 `obsidian-agent` 侧，你的知识笔记保存在外部挂载的 `obsidian` 侧。极致优雅，大模型产生的缓存不会弄脏你的笔记板！
-- **双引擎高质量数据摄取**：优先使用 `defuddle` 提取最干净的网页 Markdown（移除广告、导航），按需回退至 `trafilatura`，对 Token 极度友好。
-- **多模型分级架构**：针对任务难度自动切换 Gemini 模型，完美贴合成本控制：
-  - **Gemini 2.5 Pro**：处理复杂推理任务，如撰写深度概念文章、回答高难度提问。
-  - **Gemini 2.5 Flash**：处理日常任务，如生成摘要、局部更新。
-  - **Gemini 2.5 Flash-Lite**：处理简单且频繁的任务，如索引生成、检索匹配（极度节省成本）。
-- **原生兼容 Obsidian 语法**：深度集成 [kepano/obsidian-skills](https://github.com/kepano/obsidian-skills) 的 markdown 规范。生成的知识库自动使用 `[[双向链接]]`、`> [!note]` 提示框，以及正确的 YAML properties 和 `==高亮==` 标注。
-
----
-
-## 目录结构设计
-
-经过代码解耦后的双核架构：
+## 项目结构
 
 ```text
-你的工作区 (例如 ~/docs) 
-├── obsidian/             # 👉 纯内容的 Obsidian Vault 你的专属外脑
-│   ├── raw/              # 原始资料（由 Agent 自动写入或人工投喂）
-│   ├── wiki/             # Agent 持续编译扩充的核心概念维基
-│   └── output/           # Agent 进行问答互动沉淀的输出报告
-│
-└── obsidian-agent/       # 👉 控制端与大脑 (当前所在本项目)
-    ├── scripts/          
-    │   ├── utils.py      # 共用工具（Gemini 调用、模型降级、目录解耦）
-    │   ├── ingest.py     # 外部网络数据提取
-    │   ├── compile.py    # Wiki 编译中枢
-    │   └── qa.py         # 问答伴侣
-    ├── config.yaml       # 用户配置偏好
-    ├── .env              # API 密钥（安全隔离）
-    └── requirements.txt  # Python 依赖
+obsidian-agent/
+├── install.sh                     # 一键安装后台 + 插件 + vault 目录
+├── config.yaml                    # 后端配置
+├── .env.example                   # API Key 模板
+├── package.json                   # 本地 Node 依赖（defuddle）
+├── requirements.txt               # Python 依赖
+├── plugins/
+│   └── obsidian-llm-agent/        # Obsidian 插件源码
+│       ├── manifest.json
+│       ├── main.js
+│       └── styles.css
+└── scripts/
+    ├── ingest.py
+    ├── compile.py
+    ├── qa.py
+    └── utils.py
 ```
 
----
+## 一键安装
 
-## 快速开始
-
-### 1. 环境依赖 (需要在 `obsidian-agent` 中执行)
-
-确保系统中已安装 Node.js 和 Python 3：
+### 1. 克隆仓库
 
 ```bash
-# 切换到 Agent 设置组
-cd obsidian-agent/
-
-# Python 依赖
-pip3 install -r requirements.txt
-
-# Node.js 依赖 (用于更高质量网页内容提取)
-npm install -g defuddle
+git clone https://github.com/obsidian-llm-lab/obsidian-agent.git
+cd obsidian-agent
 ```
 
-### 2. 配置 API Key 与挂载参数
+### 2. 运行安装脚本
 
-编辑 `obisian-agent/.env` 文件，填入你的 Google Gemini API Key [获取地址](https://aistudio.google.com/apikey)：
+默认会把 vault 安装到仓库旁边的 `../obsidian`：
+
+```bash
+./install.sh
+```
+
+如果你想指定自己的 Obsidian vault 路径：
+
+```bash
+./install.sh /absolute/path/to/your-obsidian-vault
+```
+
+安装脚本会自动完成这些事情：
+
+- 创建 `.venv`
+- 安装 Python 依赖
+- 安装本地 Node 依赖 `defuddle`
+- 创建 Obsidian vault 所需目录
+- 把插件复制到 `vault/.obsidian/plugins/obsidian-llm-agent/`
+- 写入插件默认配置
+- 将插件加入 `community-plugins.json`
+- 如果 `.env` 不存在，则从 `.env.example` 生成
+- 将 `config.yaml` 中的 `paths.vault_dir` 改成你的目标 vault 路径
+
+## 安装后只需做两件事
+
+### 1. 配置 Gemini API Key
+
+编辑仓库根目录的 `.env`：
 
 ```env
 GEMINI_API_KEY=your-gemini-api-key-here
 ```
 
-并在 `config.yaml` 确认 `vault_dir` 正确指向了你的知识库目录：
-```yaml
-paths:
-  vault_dir: "../obsidian"  # 挂载参数指向你的笔记区！
+### 2. 在 Obsidian 中启用插件
+
+打开你的 vault，然后：
+
+1. 进入 `Settings -> Community plugins`
+2. 确认允许社区插件
+3. 启用 `LLM Agent Console`
+
+启用后，左侧会出现一个机器人图标，点击即可打开 `LLM Agent` 面板。
+
+## 在 Obsidian 里能做什么
+
+插件面板当前支持：
+
+- `摄取 URL`
+- `增量编译`
+- `查看编译状态`
+- `知识库问答`
+
+所有任务都直接在 Obsidian 内触发，不需要手动打开终端。
+
+## 默认生成的 vault 目录
+
+```text
+your-vault/
+├── raw/
+│   ├── articles/
+│   ├── papers/
+│   ├── code/
+│   ├── images/
+│   └── misc/
+├── wiki/
+│   ├── concepts/
+│   ├── summaries/
+│   └── relations/
+└── output/
+    ├── reports/
+    ├── charts/
+    └── slides/
 ```
 
-### 3. 操作指令示例
+## 后端命令
 
-*注意：以下所有指令均在 `obsidian-agent/` 目录路径下执行*
+虽然推荐直接在 Obsidian 插件里使用，你仍然可以手动运行后端命令：
 
-**摄取资料（投喂素材）：**
 ```bash
-# 摄取网络长文
-python3 scripts/ingest.py url https://lilianweng.github.io/posts/2023-06-23-agent/
+# 摄取网页
+.venv/bin/python scripts/ingest.py url https://example.com/article
 
-# 摄取 PDF 论文
-python3 scripts/ingest.py pdf ~/papers/attention.pdf
+# 增量编译
+.venv/bin/python scripts/compile.py
 
-# 摄取任意本地文件
-python3 scripts/ingest.py file ~/code/script.py
+# 查看状态
+.venv/bin/python scripts/compile.py --status
 
-# 查看已存入文档库的源文件列表
-python3 scripts/ingest.py list
+# 问答并保存报告
+.venv/bin/python scripts/qa.py --save "什么是 RLHF？"
 ```
 
-**触发全自动编译思考（构建维基）：**
+## 插件开发与同步
+
+仓库中的插件源码位于 `plugins/obsidian-llm-agent/`。
+
+如果你修改了插件源码，重新运行一次安装脚本即可把最新插件同步到目标 vault：
+
 ```bash
-# 执行增量编译（大模型只会花费极少的 token 去补全新资料并更新全网链接）
-python3 scripts/compile.py
-
-# 查看编译库的进展大盘！
-python3 scripts/compile.py --status
+./install.sh /absolute/path/to/your-obsidian-vault
 ```
 
-**对话与查阅（调取心智）：**
-```bash
-# 运行问答机器人（Agent）
-python3 scripts/qa.py
+## 当前技术栈
 
-# 以快捷流直接丢问题进去获取解答，并帮你把整篇整理导出成 Markdown 到 output/
-python3 scripts/qa.py --save "大语言模型如何应对思维链局限问题？"
-```
+- Python 后端
+- Google Gemini API
+- Obsidian Desktop 插件
+- Node 本地依赖：`defuddle`
 
----
+## 注意事项
 
-## 在 Obsidian 中使用（最佳化体验建议）
-
-因为我们完全剥离出了 `obsidian/` 目录，你可以直接在 Obsidian 极其清爽地打开 `../obsidian` 文件夹作为你的顶级 Vault 源。
-
-为了实现零代码、全鼠标流体验，我们强烈建议你：
-1. **安装 Obsidian 第三方插件 `Shell Commands`**。
-2. 配置好命令： `python3 /你的绝对路径/obsidian-agent/scripts/compile.py`，并将它设置一个别名叫做 `“触发 Agent 中枢”`。
-3. 把上述命令放到侧边栏，从而你可以一边舒舒服服看文章，一边按下侧边栏图标让 Agent 后台帮你萃取最新导入的论文材料。
+- 这是桌面版 Obsidian 插件，移动端不可用
+- 首次启用社区插件时，仍需要你在 Obsidian 里确认安全提示
+- `.env` 不会提交到仓库，请自行保管 API Key

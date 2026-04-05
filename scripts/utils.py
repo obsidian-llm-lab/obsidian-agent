@@ -37,12 +37,17 @@ def load_config() -> dict:
         return yaml.safe_load(f)
 
 
-def get_path(config: dict, key: str) -> Path:
-    """根据配置获取绝对路径，支持外部 vault。"""
+def get_vault_dir(config: dict) -> Path:
+    """获取挂载的 Obsidian vault 绝对路径。"""
     vault_base = Path(config["paths"].get("vault_dir", "."))
     if not vault_base.is_absolute():
         vault_base = ROOT_DIR / vault_base
-    return vault_base / config["paths"][key]
+    return vault_base.resolve()
+
+
+def get_path(config: dict, key: str) -> Path:
+    """根据配置获取绝对路径，支持外部 vault。"""
+    return get_vault_dir(config) / config["paths"][key]
 
 
 # ── 环境变量 ──────────────────────────────────────────
@@ -76,14 +81,14 @@ OBSIDIAN_MARKDOWN_GUIDE = """你是一个专业的知识库编辑助手，擅长
 - 高亮: ==关键文本==
 - 标签: #标签名, #层级/标签
 - 隐藏注释: %%隐藏内容%%
-- Properties 使用 YAML frontmatter (---) 格式
+- 如果需要 metadata，由程序统一写入 YAML frontmatter
 - 任务列表: - [ ] 待办, - [x] 已完成
 
 ## 写作规范
 - 使用 [[双向链接]] 连接相关概念，而非普通 Markdown 链接
 - 重要信息使用 > [!note] 或 > [!important] callout 标注
 - 关键术语首次出现时使用 ==高亮== 标记
-- 每篇文章使用恰当的 frontmatter 元数据
+- 只输出正文内容，不要输出 YAML frontmatter，不要在开头额外添加 --- 分隔块
 """
 
 
@@ -193,13 +198,20 @@ def read_markdown(path: Path) -> tuple[dict, str]:
     return parse_frontmatter(content)
 
 
+def sanitize_markdown_body(body: str) -> str:
+    """清洗 LLM 生成的 Markdown 正文，去掉重复 frontmatter。"""
+    _, cleaned_body = parse_frontmatter(body.strip())
+    return cleaned_body.strip()
+
+
 def write_markdown(path: Path, meta: dict, body: str):
     """将 frontmatter + body 写入 Markdown 文件。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     frontmatter = build_frontmatter(meta)
-    content = f"{frontmatter}\n\n{body}\n"
+    cleaned_body = sanitize_markdown_body(body)
+    content = f"{frontmatter}\n\n{cleaned_body}\n"
     path.write_text(content, encoding="utf-8")
-    console.print(f"[green]✓ 已写入:[/green] {path.relative_to(ROOT_DIR)}")
+    console.print(f"[green]✓ 已写入:[/green] {display_path(path)}")
 
 
 # ── 文件工具 ──────────────────────────────────────────
@@ -273,6 +285,22 @@ def find_article_by_concept(config: dict, concept: str) -> Optional[Path]:
         if slug.lower() in f.stem.lower():
             return f
     return None
+
+
+def vault_relative_path(path: Path, config: dict) -> str:
+    """将路径标准化为相对 vault 根目录的 POSIX 路径。"""
+    return path.resolve().relative_to(get_vault_dir(config)).as_posix()
+
+
+def display_path(path: Path) -> str:
+    """格式化路径，优先显示相对项目或工作区的短路径。"""
+    resolved = path.resolve()
+    for base in (ROOT_DIR, ROOT_DIR.parent):
+        try:
+            return resolved.relative_to(base).as_posix()
+        except ValueError:
+            continue
+    return str(resolved)
 
 
 # ── 日志 ──────────────────────────────────────────────

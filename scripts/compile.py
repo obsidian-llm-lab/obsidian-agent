@@ -18,7 +18,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.utils import (
-    ROOT_DIR,
     load_config,
     call_llm,
     read_markdown,
@@ -29,8 +28,9 @@ from scripts.utils import (
     get_path,
     get_uncompiled_raw_files,
     list_wiki_articles,
-    list_raw_files,
     find_article_by_concept,
+    vault_relative_path,
+    display_path,
     log_info,
     log_success,
     log_warning,
@@ -154,7 +154,7 @@ def compile_single(raw_path: Path, config: dict):
     summary_meta = {
         "title": f"{title} — 摘要",
         "source": source,
-        "raw_file": str(raw_path.relative_to(ROOT_DIR)),
+        "raw_file": vault_relative_path(raw_path, config),
         "type": "summary",
         "created_at": timestamp_now(),
         "date": date_today(),
@@ -203,7 +203,7 @@ def compile_single(raw_path: Path, config: dict):
 
                 # 更新 related_summaries
                 related = existing_meta.get("related_summaries", [])
-                rel_path = str(summary_path.relative_to(ROOT_DIR))
+                rel_path = vault_relative_path(summary_path, config)
                 if rel_path not in related:
                     related.append(rel_path)
                 existing_meta["related_summaries"] = related
@@ -228,7 +228,7 @@ def compile_single(raw_path: Path, config: dict):
                     "definition": definition,
                     "created_at": timestamp_now(),
                     "date": date_today(),
-                    "related_summaries": [str(summary_path.relative_to(ROOT_DIR))],
+                    "related_summaries": [vault_relative_path(summary_path, config)],
                     "tags": [],
                 }
 
@@ -248,7 +248,7 @@ def compile_single(raw_path: Path, config: dict):
     write_markdown(raw_path, meta, body)
 
     log_success(f"编译完成: {title}")
-    log_info(f"  摘要: {summary_path.relative_to(ROOT_DIR)}")
+    log_info(f"  摘要: {display_path(summary_path)}")
     log_info(f"  概念: {len(concept_names)} 个 — {', '.join(concept_names[:5])}")
 
 

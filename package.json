@@ -1,0 +1,9 @@
+{
+  "name": "obsidian-agent",
+  "private": true,
+  "version": "1.0.0",
+  "description": "LLM knowledge base backend and Obsidian plugin",
+  "dependencies": {
+    "defuddle": "^0.6.5"
+  }
+}

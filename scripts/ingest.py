@@ -21,7 +21,6 @@ from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.utils import (
-    ROOT_DIR,
     load_config,
     write_markdown,
     read_markdown,
@@ -32,6 +31,7 @@ from scripts.utils import (
     log_success,
     log_warning,
     log_error,
+    display_path,
     get_path,
     console,
 )
@@ -165,7 +165,7 @@ def ingest_url(url: str, config: dict) -> Path:
         counter += 1
 
     write_markdown(output_path, meta, body)
-    log_success(f"网页已摄取: {output_path.relative_to(ROOT_DIR)}")
+    log_success(f"网页已摄取: {display_path(output_path)}")
     log_info(f"标题: {title}")
     log_info(f"内容长度: {len(body)} 字符")
 
@@ -233,9 +233,9 @@ def ingest_pdf(pdf_path: str, config: dict) -> Path:
     pdf_copy = raw_dir / source.name
     if not pdf_copy.exists():
         shutil.copy2(source, pdf_copy)
-        log_info(f"原始 PDF 已复制到: {pdf_copy.relative_to(ROOT_DIR)}")
+        log_info(f"原始 PDF 已复制到: {display_path(pdf_copy)}")
 
-    log_success(f"PDF 已摄取: {output_path.relative_to(ROOT_DIR)}")
+    log_success(f"PDF 已摄取: {display_path(output_path)}")
     log_info(f"页数: {len(text_parts)}")
     log_info(f"内容长度: {len(body)} 字符")
 
@@ -298,7 +298,7 @@ def ingest_file(file_path: str, config: dict) -> Path:
             })
             write_markdown(dest, meta, body)
 
-    log_success(f"文件已摄取: {dest.relative_to(ROOT_DIR)} (类型: {sub_dir})")
+    log_success(f"文件已摄取: {display_path(dest)} (类型: {sub_dir})")
     return dest
 
 
