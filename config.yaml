@@ -28,7 +28,7 @@ paths:
   output: output
   raw: raw
   scripts: scripts
-  vault_dir: "/tmp/obsidian-agent-smoketest-vault-2"
+  vault_dir: ../obsidian
   wiki: wiki
 qa:
   max_context_articles: 10

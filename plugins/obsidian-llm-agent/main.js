@@ -974,6 +974,10 @@ module.exports = class LLMAgentPlugin extends Plugin {
             const { command, args } = this.buildCommandArgs(options.args);
             const child = spawn(command, args, {
                 cwd: this.settings.agentDirectory,
+                env: {
+                    ...process.env,
+                    OBSIDIAN_AGENT_VAULT_DIR: this.app.vault.adapter.basePath,
+                },
                 shell: false,
             });
 

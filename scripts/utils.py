@@ -39,7 +39,8 @@ def load_config() -> dict:
 
 def get_vault_dir(config: dict) -> Path:
     """获取挂载的 Obsidian vault 绝对路径。"""
-    vault_base = Path(config["paths"].get("vault_dir", "."))
+    env_vault_dir = os.getenv("OBSIDIAN_AGENT_VAULT_DIR", "").strip()
+    vault_base = Path(env_vault_dir or config["paths"].get("vault_dir", "."))
     if not vault_base.is_absolute():
         vault_base = ROOT_DIR / vault_base
     return vault_base.resolve()

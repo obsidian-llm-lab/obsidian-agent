@@ -103,6 +103,20 @@ cd obsidian-agent
 
 所有任务都直接在 Obsidian 内触发，不需要手动打开终端。
 
+## 界面预览
+
+### 插件主面板
+
+![LLM Agent Panel](docs/images/plugin-panel-preview.png)
+
+### 插件设置页
+
+![LLM Agent Settings](docs/images/plugin-settings-preview.png)
+
+### 知识库问答弹窗
+
+![LLM Agent Modal](docs/images/plugin-modal-preview.png)
+
 ## 默认生成的 vault 目录
 
 ```text

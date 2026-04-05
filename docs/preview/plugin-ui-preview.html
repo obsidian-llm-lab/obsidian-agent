@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LLM Agent UI Preview</title>
+    <link rel="stylesheet" href="../../plugins/obsidian-llm-agent/styles.css" />
+    <style>
+      :root {
+        --background-primary: #0f1720;
+        --background-secondary: #18222f;
+        --background-modifier-border: rgba(255, 255, 255, 0.08);
+        --background-modifier-hover: rgba(255, 255, 255, 0.08);
+        --text-normal: #e9eef5;
+        --text-muted: #99a6b6;
+        --text-on-accent: #f8fbff;
+        --interactive-accent: #2f7cf6;
+        --color-orange: #ff9b45;
+        --color-green: #38c172;
+        --color-red: #ff6b6b;
+        --font-text: "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--font-text);
+        background:
+          radial-gradient(circle at top left, rgba(47, 124, 246, 0.18), transparent 28%),
+          linear-gradient(180deg, #081019 0%, #0d141d 100%);
+        color: var(--text-normal);
+      }
+
+      .preview-page {
+        width: 1440px;
+        min-height: 1024px;
+        padding: 36px;
+      }
+
+      .preview-frame {
+        background: rgba(8, 12, 16, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 40px 100px rgba(0, 0, 0, 0.35);
+      }
+
+      .window-bar {
+        height: 46px;
+        padding: 0 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .window-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .window-dot.red { background: #ff5f57; }
+      .window-dot.yellow { background: #febc2e; }
+      .window-dot.green { background: #28c840; }
+
+      .preview-body {
+        display: grid;
+        grid-template-columns: 88px 1fr 380px;
+        min-height: 860px;
+      }
+
+      .left-ribbon {
+        padding: 18px 10px;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .ribbon-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        margin: 0 auto 10px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-muted);
+        font-size: 18px;
+      }
+
+      .ribbon-icon.active {
+        background: rgba(47, 124, 246, 0.16);
+        color: #8eb8ff;
+      }
+
+      .editor-surface {
+        padding: 28px 32px;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .note-card {
+        max-width: 760px;
+        padding: 26px 28px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .note-card h1,
+      .settings-surface h1 {
+        margin: 0 0 14px;
+        font-size: 34px;
+      }
+
+      .note-card p,
+      .settings-surface p {
+        margin: 0 0 12px;
+        line-height: 1.7;
+        color: var(--text-muted);
+      }
+
+      .note-block {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .right-pane {
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .settings-layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        min-height: 860px;
+      }
+
+      .settings-nav {
+        padding: 28px 18px;
+        border-right: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .settings-nav-item {
+        padding: 12px 14px;
+        border-radius: 14px;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+      }
+
+      .settings-nav-item.active {
+        color: var(--text-normal);
+        background: rgba(47, 124, 246, 0.14);
+      }
+
+      .settings-surface {
+        padding: 32px 36px;
+      }
+
+      .setting-item {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 16px;
+        padding: 16px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .setting-item h3 {
+        margin: 0 0 6px;
+        font-size: 16px;
+      }
+
+      .setting-item-description {
+        color: var(--text-muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .setting-control {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+      }
+
+      .setting-input,
+      .setting-select {
+        width: 100%;
+        min-height: 38px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-normal);
+        padding: 8px 12px;
+      }
+
+      .modal-preview-shell {
+        position: relative;
+        min-height: 860px;
+        background: rgba(0, 0, 0, 0.18);
+      }
+
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal-content {
+        width: 620px;
+        padding: 22px;
+        background: linear-gradient(180deg, #17202b, #121922);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      }
+
+      .modal-content .llm-agent-modal-content {
+        padding: 0;
+      }
+
+      .modal-content button {
+        appearance: none;
+        border: none;
+      }
+    </style>
+  </head>
+  <body>
+    <section id="panel" class="preview-page">
+      <div class="preview-frame">
+        <div class="window-bar">
+          <span class="window-dot red"></span>
+          <span class="window-dot yellow"></span>
+          <span class="window-dot green"></span>
+        </div>
+        <div class="preview-body">
+          <aside class="left-ribbon">
+            <div class="ribbon-icon">📁</div>
+            <div class="ribbon-icon">🔎</div>
+            <div class="ribbon-icon active">🤖</div>
+          </aside>
+          <main class="editor-surface">
+            <article class="note-card">
+              <h1>知识库索引</h1>
+              <p>这里是 Obsidian 的主编辑区。插件本身不打断你的阅读流，而是在右侧提供完整的 Agent 控制台。</p>
+              <div class="note-block">
+                <strong>当前工作流</strong>
+                <p>摄取 URL、增量编译、查看编译状态、知识库问答都可以直接从插件面板完成。</p>
+              </div>
+            </article>
+          </main>
+          <aside class="right-pane">
+            <div class="llm-agent-view">
+              <div class="llm-agent-hero">
+                <div class="llm-agent-hero-top">
+                  <h2>LLM Agent</h2>
+                  <span class="llm-agent-status-badge is-success">执行成功</span>
+                </div>
+                <p class="llm-agent-hero-description">在 Obsidian 里直接触发摄取、编译和问答。</p>
+              </div>
+              <div class="llm-agent-actions">
+                <button class="llm-agent-action-button">摄取 URL</button>
+                <button class="llm-agent-action-button">增量编译</button>
+                <button class="llm-agent-action-button">查看编译状态</button>
+                <button class="llm-agent-action-button">知识库问答</button>
+              </div>
+              <div class="llm-agent-card llm-agent-status">
+                <h3>任务状态</h3>
+                <div class="llm-agent-meta-list">
+                  <p>任务类型: compile</p>
+                  <p>开始时间: 2026/4/5 14:54:10</p>
+                  <p>结束时间: 2026/4/5 14:54:38</p>
+                </div>
+              </div>
+              <div class="llm-agent-card">
+                <h3>结果摘要</h3>
+                <pre class="llm-agent-summary">处理资料: 3 个
+结果: 3 成功</pre>
+                <div class="llm-agent-result-row">
+                  <span class="llm-agent-result-label">结果文件</span>
+                  <button class="llm-agent-result-button">index.md</button>
+                </div>
+              </div>
+              <div class="llm-agent-card llm-agent-open-actions">
+                <h3>快速打开</h3>
+                <button class="llm-agent-secondary-button">打开索引</button>
+                <button class="llm-agent-secondary-button">打开最新报告</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="settings" class="preview-page">
+      <div class="preview-frame">
+        <div class="window-bar">
+          <span class="window-dot red"></span>
+          <span class="window-dot yellow"></span>
+          <span class="window-dot green"></span>
+        </div>
+        <div class="settings-layout">
+          <aside class="settings-nav">
+            <div class="settings-nav-item">编辑器</div>
+            <div class="settings-nav-item">文件与链接</div>
+            <div class="settings-nav-item">外观</div>
+            <div class="settings-nav-item active">LLM Agent Console</div>
+          </aside>
+          <main class="settings-surface">
+            <h1>LLM Agent 设置</h1>
+            <p>这里的后台设置会同步写回 obsidian-agent 的 .env 和 config.yaml，不会显示在插件主面板。</p>
+
+            <div class="setting-item">
+              <div>
+                <h3>Gemini API Key</h3>
+                <div class="setting-item-description">保存到 obsidian-agent/.env 的 GEMINI_API_KEY。</div>
+              </div>
+              <div class="setting-control">
+                <input class="setting-input" value="AIza**********************" />
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div>
+                <h3>Pro 模型</h3>
+                <div class="setting-item-description">复杂推理任务默认使用。</div>
+              </div>
+              <div class="setting-control">
+                <input class="setting-input" value="gemini-2.5-pro" />
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div>
+                <h3>Flash 模型</h3>
+                <div class="setting-item-description">日常摘要和轻量生成任务默认使用。</div>
+              </div>
+              <div class="setting-control">
+                <input class="setting-input" value="gemini-2.5-flash" />
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div>
+                <h3>问答回答</h3>
+                <div class="setting-item-description">对应后端角色: qa_answer</div>
+              </div>
+              <div class="setting-control">
+                <select class="setting-select">
+                  <option>Lite</option>
+                  <option>Flash</option>
+                  <option selected>Pro</option>
+                </select>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </section>
+
+    <section id="modal" class="preview-page">
+      <div class="preview-frame">
+        <div class="window-bar">
+          <span class="window-dot red"></span>
+          <span class="window-dot yellow"></span>
+          <span class="window-dot green"></span>
+        </div>
+        <div class="modal-preview-shell">
+          <div class="modal-backdrop">
+            <div class="modal-content llm-agent-modal">
+              <div class="llm-agent-modal-content">
+                <h2>知识库问答</h2>
+                <p class="llm-agent-modal-description">输入你的问题，回答会基于当前 wiki 生成。</p>
+                <div class="llm-agent-modal-form">
+                  <textarea class="llm-agent-modal-input llm-agent-modal-textarea">请总结一下这套 Obsidian Agent 工作流的价值与典型使用场景。</textarea>
+                </div>
+                <p class="setting-item-description llm-agent-modal-hint">按 Cmd/Ctrl + Enter 提交</p>
+                <div class="llm-agent-modal-actions">
+                  <button class="llm-agent-action-button mod-cta">开始问答</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
