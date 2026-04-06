@@ -2,11 +2,15 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLUGIN_ID="obsidian-llm-agent"
 PLUGIN_SRC_DIR="$REPO_ROOT/plugins/$PLUGIN_ID"
 DEFAULT_VAULT_PATH="$REPO_ROOT/../obsidian"
-VAULT_PATH="${1:-$DEFAULT_VAULT_PATH}"
+if [[ $# -gt 0 ]]; then
+  VAULT_PATH="$*"
+else
+  VAULT_PATH="$DEFAULT_VAULT_PATH"
+fi
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then

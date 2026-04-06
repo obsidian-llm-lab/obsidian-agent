@@ -21,7 +21,7 @@
 ```
 ┌──────────────────────────────────────────────────────┐
 │                    Obsidian Vault                     │
-│  (当前目录: /Users/nier/docs/obsidian)                │
+│  (当前目录: /path/to/your-vault)                      │
 │                                                       │
 │  ├── raw/              ← 原始资料输入                  │
 │  │   ├── articles/     ← 文章/网页剪藏                 │
@@ -41,14 +41,15 @@
 │  │   ├── charts/       ← 可视化图表                     │
 │  │   └── reports/      ← 分析报告                       │
 │  │                                                     │
-│  ├── scripts/          ← 自动化脚本                     │
+│  ├── scripts/          ← 后端与安装脚本                 │
 │  │   ├── ingest.py     ← 数据摄取脚本                   │
 │  │   ├── compile.py    ← Wiki 编译脚本                  │
 │  │   ├── qa.py         ← 问答 Agent 脚本                │
+│  │   ├── install.sh    ← 环境安装脚本                   │
+│  │   ├── bootstrap_*.sh← 空白 vault 引导脚本            │
 │  │   └── lint.py       ← Wiki 健康检查脚本              │
 │  │                                                     │
-│  ├── .obsidian/        ← Obsidian 配置                  │
-│  └── project.md        ← 本文件                        │
+│  └── .obsidian/        ← Obsidian 配置                  │
 └──────────────────────────────────────────────────────┘
 ```
 

@@ -13,19 +13,22 @@
 
 ```text
 obsidian-agent/
-├── install.sh                     # 一键安装后台 + 插件 + vault 目录
 ├── config.yaml                    # 后端配置
 ├── .env.example                   # API Key 模板
 ├── package.json                   # 本地 Node 依赖（defuddle）
 ├── requirements.txt               # Python 依赖
+├── docs/                          # 预览图和文档素材
 ├── plugins/
 │   └── obsidian-llm-agent/        # Obsidian 插件源码
 │       ├── manifest.json
 │       ├── main.js
 │       └── styles.css
 └── scripts/
+    ├── bootstrap_vault.sh         # 给全新 vault 安装插件和最小配置
     ├── ingest.py
     ├── compile.py
+    ├── install.sh                 # 一键安装后台 + 插件 + vault 目录
+    ├── link_icloud_roots.sh       # 把 iCloud 根目录下的知识库软链接到指定目录
     ├── qa.py
     └── utils.py
 ```
@@ -44,14 +47,33 @@ cd obsidian-agent
 默认会把 vault 安装到仓库旁边的 `../obsidian`：
 
 ```bash
-./install.sh
+./scripts/install.sh
 ```
 
 如果你想指定自己的 Obsidian vault 路径：
 
 ```bash
-./install.sh /absolute/path/to/your-obsidian-vault
+./scripts/install.sh /absolute/path/to/your-obsidian-vault
 ```
+
+### 给全新空白 vault 安装插件
+
+如果你只是新建了一个空的 Obsidian vault，想先把插件装进去，再在 Obsidian 里选择知识库模板，可以运行：
+
+```bash
+./scripts/bootstrap_vault.sh /absolute/path/to/your-empty-vault
+```
+
+路径里如果有空格也可以直接传，脚本会自动拼接成完整 vault 路径。
+
+这个脚本会：
+
+- 创建最小 `.obsidian/` 结构
+- 安装 `obsidian-llm-agent` 插件
+- 写入插件默认配置
+- 自动把插件加入 `community-plugins.json`
+
+然后你只需要在 Obsidian 里打开这个 vault，启用插件，再点击“初始化当前知识库”即可。
 
 安装脚本会自动完成这些事情：
 
@@ -96,12 +118,15 @@ cd obsidian-agent
 
 插件面板当前支持：
 
+- `初始化当前知识库`
 - `摄取 URL`
 - `增量编译`
 - `查看编译状态`
 - `知识库问答`
 
 所有任务都直接在 Obsidian 内触发，不需要手动打开终端。
+
+其中“初始化当前知识库”支持在当前 vault 里一键补齐推荐目录、README 和起步文件，适合快速创建新的独立知识库。
 
 ## 界面预览
 
@@ -162,8 +187,36 @@ your-vault/
 如果你修改了插件源码，重新运行一次安装脚本即可把最新插件同步到目标 vault：
 
 ```bash
-./install.sh /absolute/path/to/your-obsidian-vault
+./scripts/install.sh /absolute/path/to/your-obsidian-vault
 ```
+
+## iCloud 根目录软链接
+
+如果你希望把 iCloud Drive 根目录下的多个知识库统一软链接到某个本地目录，方便在多台 Mac 上复用同一套 iCloud 同步能力，可以运行：
+
+```bash
+./scripts/link_icloud_roots.sh /absolute/path/to/your-link-directory
+```
+
+这个脚本会：
+
+- 扫描 `~/Library/Mobile Documents/com~apple~CloudDocs`
+- 自动排除 `Desktop`、`Documents` 和隐藏项
+- 把其他一级目录软链接到你指定的位置
+
+常用示例：
+
+```bash
+# 先预演，不真正创建
+./scripts/link_icloud_roots.sh --dry-run ~/icloud-links
+
+# 真正创建软链接
+./scripts/link_icloud_roots.sh ~/icloud-links
+```
+
+如果你希望在同一个 Apple ID 的多台 Mac 之间同步多个知识库，可以进一步参考：
+
+- [使用 Apple iCloud 在多台 Mac 之间同步知识库](docs/multi-mac-icloud-sync.md)
 
 ## 当前技术栈
 

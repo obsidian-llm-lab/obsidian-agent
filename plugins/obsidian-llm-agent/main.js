@@ -32,6 +32,19 @@ const DEFAULT_SETTINGS = {
     roleQaAnswer: 'pro',
 };
 
+const KNOWLEDGE_BASE_PRESETS = {
+    general: {
+        key: 'general',
+        label: '通用知识库',
+        description: '适合 AI、产品、文章摘录和通用研究资料。',
+    },
+    market: {
+        key: 'market',
+        label: '金融研究库',
+        description: '适合股票、期货、宏观主题和交易复盘。',
+    },
+};
+
 function tailText(text, maxLines = 12) {
     return text
         .split(/\r?\n/)
@@ -157,6 +170,79 @@ class TextPromptModal extends Modal {
     }
 }
 
+class KnowledgeBaseSetupModal extends Modal {
+    constructor(app, plugin) {
+        super(app);
+        this.plugin = plugin;
+        this.selectedPreset = 'general';
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        this.modalEl.addClass('llm-agent-modal');
+        contentEl.empty();
+        contentEl.addClass('llm-agent-modal-content');
+        contentEl.createEl('h2', { text: '初始化当前知识库' });
+        contentEl.createEl('p', {
+            text: '选择一个模板，插件会在当前 vault 中补齐目录、README 和起步文件。已有文件不会被覆盖。',
+            cls: 'llm-agent-modal-description',
+        });
+
+        const optionGrid = contentEl.createDiv({ cls: 'llm-agent-preset-grid' });
+        const optionElements = [];
+
+        Object.values(KNOWLEDGE_BASE_PRESETS).forEach((preset) => {
+            const card = optionGrid.createDiv({
+                cls: 'llm-agent-preset-card',
+            });
+            card.createEl('h3', { text: preset.label });
+            card.createEl('p', {
+                text: preset.description,
+                cls: 'llm-agent-modal-description',
+            });
+            card.addEventListener('click', () => {
+                this.selectedPreset = preset.key;
+                optionElements.forEach((el) => {
+                    el.classList.toggle('is-selected', el.dataset.preset === this.selectedPreset);
+                });
+            });
+            card.dataset.preset = preset.key;
+            if (preset.key === this.selectedPreset) {
+                card.classList.add('is-selected');
+            }
+            optionElements.push(card);
+        });
+
+        contentEl.createEl('p', {
+            text: '通用知识库会创建更完整的 raw/wiki/output 结构；金融研究库会额外附带几篇适合股票和期货场景的种子笔记。',
+            cls: 'setting-item-description llm-agent-modal-hint',
+        });
+
+        const buttonRow = contentEl.createDiv({
+            cls: 'llm-agent-modal-actions llm-agent-modal-actions-split',
+        });
+
+        const cancelButton = buttonRow.createEl('button', {
+            text: '取消',
+        });
+        cancelButton.addEventListener('click', () => this.close());
+
+        const submitButton = buttonRow.createEl('button', {
+            text: '开始初始化',
+            cls: 'mod-cta',
+        });
+        submitButton.addEventListener('click', () => {
+            this.close();
+            this.plugin.initializeKnowledgeBase(this.selectedPreset);
+        });
+    }
+
+    onClose() {
+        this.modalEl.removeClass('llm-agent-modal');
+        this.contentEl.empty();
+    }
+}
+
 class LLMAgentTaskView extends ItemView {
     constructor(leaf, plugin) {
         super(leaf);
@@ -201,6 +287,7 @@ class LLMAgentTaskView extends ItemView {
 
         const actionRow = contentEl.createDiv({ cls: 'llm-agent-actions' });
         const actions = [
+            ['初始化知识库', () => this.plugin.openKnowledgeBaseSetupModal()],
             ['摄取 URL', () => this.plugin.openIngestModal()],
             ['增量编译', () => this.plugin.runCompile()],
             ['查看编译状态', () => this.plugin.runStatus()],
@@ -488,6 +575,12 @@ module.exports = class LLMAgentPlugin extends Plugin {
         });
 
         this.addCommand({
+            id: 'agent-init-kb',
+            name: 'KB: 初始化当前知识库',
+            callback: () => this.openKnowledgeBaseSetupModal(),
+        });
+
+        this.addCommand({
             id: 'agent-ingest-url',
             name: 'KB: 摄取网页 URL',
             callback: () => this.openIngestModal(),
@@ -756,6 +849,10 @@ module.exports = class LLMAgentPlugin extends Plugin {
         }).open();
     }
 
+    openKnowledgeBaseSetupModal() {
+        new KnowledgeBaseSetupModal(this.app, this).open();
+    }
+
     openQaModal() {
         new TextPromptModal(this.app, {
             title: '知识库问答',
@@ -882,6 +979,366 @@ module.exports = class LLMAgentPlugin extends Plugin {
         const command = prefix[0] || 'python3';
         const args = [...prefix.slice(1), ...scriptArgs];
         return { command, args };
+    }
+
+    buildKnowledgeBaseTemplate(presetKey) {
+        const vaultName = path.basename(this.app.vault.adapter.basePath) || 'Knowledge Base';
+
+        const generalReadme = `---
+title: ${vaultName}
+created: 2026-04-05
+tags:
+  - knowledge-base
+  - obsidian
+---
+
+# ${vaultName}
+
+这是一个用于沉淀通用研究资料、文章摘录、方法论和问答结果的知识库。
+
+## 30 秒上手
+
+1. 把新资料放进 \`raw/\` 对应目录。
+2. 在左侧打开 \`LLM Agent\` 面板。
+3. 点击“增量编译”生成或更新 \`wiki/\`。
+4. 从 \`wiki/index.md\` 开始浏览知识地图。
+5. 需要专题回答时，使用“知识库问答”，结果会写进 \`output/reports/\`。
+
+## 目录作用
+
+### \`raw/\`
+
+- \`raw/articles/\`：网页文章、博客、访谈、社交媒体长帖摘录
+- \`raw/papers/\`：论文、技术报告、研究材料
+- \`raw/code/\`：代码片段、仓库笔记、实现观察
+- \`raw/images/\`：截图、图表、配图、网页抓取图片
+- \`raw/misc/\`：暂时无法归类但值得保留的资料
+
+### \`wiki/\`
+
+- \`wiki/summaries/\`：单篇资料摘要
+- \`wiki/concepts/\`：按概念聚合后的主题文章
+- \`wiki/relations/\`：概念关系和关联信息
+- \`wiki/index.md\`：当前知识库总入口
+
+### \`output/\`
+
+- \`output/reports/\`：问答报告和专题分析
+- \`output/charts/\`：图表输出
+- \`output/slides/\`：演示稿或幻灯片
+
+## 使用约定
+
+- 新资料优先放到 \`raw/\`
+- 系统生成内容主要位于 \`wiki/\`
+- 新增资料后如果没有变化，先确认文件是否位于 \`raw/\` 下
+`;
+
+        const generalStartHere = `# Start Here
+
+这个 vault 已经初始化完成，可以直接开始使用。
+
+## 建议的第一步
+
+1. 把文章或资料放进 \`raw/articles/\`
+2. 把研究想法和手写笔记放进 \`raw/misc/\`
+3. 打开左侧 \`LLM Agent\` 面板
+4. 点击“增量编译”
+5. 从 \`wiki/index.md\` 浏览结果
+`;
+
+        const marketReadme = `---
+title: ${vaultName}
+created: 2026-04-05
+tags:
+  - finance
+  - market-forge
+  - knowledge-base
+---
+
+# ${vaultName}
+
+这是一个面向股票、期货和宏观研究的独立知识库，用来沉淀资料、构建研究框架，并支持问答与报告输出。
+
+## 30 秒上手
+
+1. 把外部文章和研报放进 \`raw/articles/\`
+2. 把自己的盘前计划、盘后复盘和框架笔记放进 \`raw/notes/\`
+3. 打开左侧 \`LLM Agent\` 面板，点击“增量编译”
+4. 编译完成后，从 \`wiki/\` 查看摘要和概念文章
+5. 想做专题分析时，使用“知识库问答”，结果在 \`output/reports/\`
+
+## 目录作用
+
+### \`raw/\`
+
+- \`raw/articles/\`：新闻、研报摘录、网页内容、访谈
+- \`raw/notes/\`：盘前计划、盘后复盘、研究框架、策略草稿
+- \`raw/images/\`：图表截图、盘口图、研报配图、数据图
+
+### \`wiki/\`
+
+- \`wiki/summaries/\`：单篇资料摘要
+- \`wiki/concepts/\`：品种、行业、策略、宏观主题等概念文章
+
+### \`output/\`
+
+- \`output/reports/\`：问答报告、阶段性分析、专题研究输出
+
+## 建议的首批主题
+
+- 股票市场
+- 期货市场
+- 宏观主题
+- 品种研究
+- 策略与方法
+- 交易复盘
+`;
+
+        const marketStartHere = `# Start Here
+
+这个金融研究库已经初始化完成。
+
+## 建议的起步方式
+
+1. 补充 \`raw/notes/\` 里的研究框架种子笔记
+2. 再放入 5 到 10 篇你真正关心的文章或研报到 \`raw/articles/\`
+3. 在左侧打开 \`LLM Agent\` 面板
+4. 点击“增量编译”
+5. 从 \`wiki/\` 开始检查概念结构是否符合你的研究方式
+`;
+
+        if (presetKey === 'market') {
+            return {
+                label: KNOWLEDGE_BASE_PRESETS.market.label,
+                folders: [
+                    'raw',
+                    'raw/articles',
+                    'raw/notes',
+                    'raw/images',
+                    'wiki',
+                    'wiki/summaries',
+                    'wiki/concepts',
+                    'output',
+                    'output/reports',
+                ],
+                files: [
+                    { path: 'README.md', content: marketReadme },
+                    { path: 'Start Here.md', content: marketStartHere },
+                    {
+                        path: 'raw/notes/股票市场的核心研究框架.md',
+                        content: `---
+title: 股票市场的核心研究框架
+created: 2026-04-05
+tags:
+  - 股票
+  - 研究框架
+compiled: false
+---
+
+# 股票市场的核心研究框架
+
+## 研究目标
+
+建立一套适合中短期交易与中期研究结合的股票分析框架，用于判断市场主线、资金偏好、行业轮动和风险来源。
+
+## 核心维度
+
+- 宏观环境
+- 市场结构
+- 行业比较
+- 个股筛选
+`,
+                    },
+                    {
+                        path: 'raw/notes/期货市场的核心研究框架.md',
+                        content: `---
+title: 期货市场的核心研究框架
+created: 2026-04-05
+tags:
+  - 期货
+  - 研究框架
+compiled: false
+---
+
+# 期货市场的核心研究框架
+
+## 研究目标
+
+构建围绕供需、库存、基差、期限结构和资金行为的期货研究体系。
+
+## 核心维度
+
+- 基本面
+- 盘面结构
+- 关键指标
+- 交易映射
+`,
+                    },
+                    {
+                        path: 'raw/notes/常见交易复盘模板.md',
+                        content: `---
+title: 常见交易复盘模板
+created: 2026-04-05
+tags:
+  - 复盘
+  - 模板
+compiled: false
+---
+
+# 常见交易复盘模板
+
+## 交易背景
+
+- 当时的市场环境是什么
+- 这笔交易基于什么逻辑
+- 触发点是什么
+
+## 执行记录
+
+- 入场时间
+- 入场价格
+- 仓位大小
+- 止损与止盈计划
+
+## 提炼结论
+
+- 哪些判断是有效的
+- 哪些执行需要修正
+- 哪类错误要避免再次出现
+`,
+                    },
+                ],
+            };
+        }
+
+        return {
+            label: KNOWLEDGE_BASE_PRESETS.general.label,
+            folders: [
+                'raw',
+                'raw/articles',
+                'raw/papers',
+                'raw/code',
+                'raw/images',
+                'raw/misc',
+                'wiki',
+                'wiki/summaries',
+                'wiki/concepts',
+                'wiki/relations',
+                'output',
+                'output/reports',
+                'output/charts',
+                'output/slides',
+            ],
+            files: [
+                { path: 'README.md', content: generalReadme },
+                { path: 'Start Here.md', content: generalStartHere },
+            ],
+        };
+    }
+
+    async ensureFolderExists(folderPath) {
+        if (!folderPath) {
+            return false;
+        }
+        const exists = await this.app.vault.adapter.exists(folderPath);
+        if (exists) {
+            return false;
+        }
+        await this.app.vault.createFolder(folderPath);
+        return true;
+    }
+
+    async ensureFileExists(filePath, content) {
+        const exists = await this.app.vault.adapter.exists(filePath);
+        if (exists) {
+            return false;
+        }
+        await this.app.vault.create(filePath, content);
+        return true;
+    }
+
+    async initializeKnowledgeBase(presetKey) {
+        if (this.taskState.status === 'running') {
+            new Notice('已有任务在运行，请等待当前任务完成。');
+            return;
+        }
+
+        const template = this.buildKnowledgeBaseTemplate(presetKey);
+        const startedAt = new Date().toISOString();
+
+        this.updateTaskState({
+            status: 'running',
+            type: 'init',
+            startedAt,
+            endedAt: '',
+            message: '正在初始化当前知识库...',
+            output: '',
+            summary: '',
+            resultPath: '',
+        });
+
+        await this.activateTaskView(false);
+
+        try {
+            let createdFolders = 0;
+            let createdFiles = 0;
+
+            for (const folder of template.folders) {
+                if (await this.ensureFolderExists(folder)) {
+                    createdFolders += 1;
+                }
+            }
+
+            for (const file of template.files) {
+                const parent = path.posix.dirname(file.path);
+                if (parent && parent !== '.') {
+                    await this.ensureFolderExists(parent);
+                }
+                if (await this.ensureFileExists(file.path, file.content)) {
+                    createdFiles += 1;
+                }
+            }
+
+            const endedAt = new Date().toISOString();
+            const summaryLines = [
+                `模板: ${template.label}`,
+                `新建目录: ${createdFolders} 个`,
+                `新建文件: ${createdFiles} 个`,
+                '已有同名文件已保留',
+            ];
+
+            this.updateTaskState({
+                status: 'success',
+                type: 'init',
+                startedAt,
+                endedAt,
+                message: '知识库初始化完成',
+                output: summaryLines.join('\n'),
+                summary: summaryLines.join('\n'),
+                resultPath: 'README.md',
+            });
+
+            new Notice('当前知识库初始化完成。', 5000);
+
+            if (this.settings.autoOpenResult) {
+                await this.openVaultFile('README.md');
+            }
+        } catch (error) {
+            const endedAt = new Date().toISOString();
+            const message = error instanceof Error ? error.message : String(error);
+            this.updateTaskState({
+                status: 'failed',
+                type: 'init',
+                startedAt,
+                endedAt,
+                message: '知识库初始化失败',
+                output: message,
+                summary: message,
+                resultPath: '',
+            });
+            new Notice('知识库初始化失败，请查看 LLM Agent 面板输出。', 6000);
+        }
     }
 
     async runIngest(url) {
